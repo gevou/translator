@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  // Silence Turbopack+webpack mismatch in Next 16 builds.
+  turbopack: {},
   webpack: (config) => {
     // Required for WebSocket support in Next.js app router
     config.externals = [
@@ -12,10 +14,6 @@ const nextConfig: NextConfig = {
   },
   // Ensure the server can handle WebSocket connections
   serverExternalPackages: ["bufferutil", "utf-8-validate"],
-  eslint: {
-    // Don't run ESLint during build - we'll run it separately
-    ignoreDuringBuilds: false,
-  },
 };
 
 export default nextConfig;
