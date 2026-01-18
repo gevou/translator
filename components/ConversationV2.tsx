@@ -51,7 +51,7 @@ const ConversationV2 = React.memo(function ConversationV2({
 
   if (!conversationHistory || conversationHistory.length === 0) {
     return (
-      <div className="w-full rounded-lg bg-white p-6 shadow-md min-h-[400px] relative">
+      <div className="w-full h-full rounded-lg bg-white p-6 shadow-md min-h-[400px] relative flex flex-col min-h-0">
         <button
           onClick={handleToggleTts}
           className={`absolute top-3 right-3 w-10 h-10 rounded-full flex items-center justify-center ${buttonBgColor} shadow-md z-10 transition-colors duration-150`}
@@ -76,7 +76,7 @@ const ConversationV2 = React.memo(function ConversationV2({
             TRANSLATION
           </span>
         </div>
-        <p className="text-gray-500 text-sm" aria-live="polite">
+        <p className="text-gray-500 text-sm flex-1" aria-live="polite">
           {" "}
           {/* Removed font-mono, adjusted color */}
           No transcript available...
@@ -86,7 +86,7 @@ const ConversationV2 = React.memo(function ConversationV2({
   }
 
   return (
-    <div className="w-full rounded-lg bg-white p-6 shadow-md min-h-[400px] relative">
+    <div className="w-full h-full rounded-lg bg-white p-6 shadow-md min-h-[400px] relative flex flex-col min-h-0">
       <button
         onClick={handleToggleTts}
         className={`absolute top-3 right-3 w-10 h-10 rounded-full flex items-center justify-center ${buttonBgColor} shadow-md z-10 transition-colors duration-150`}
@@ -116,7 +116,7 @@ const ConversationV2 = React.memo(function ConversationV2({
       </div>
       <div
         ref={scrollableContainerRef}
-        className="flex flex-col gap-4" // Styles for gap remain
+        className="flex flex-col gap-4 flex-1 min-h-0" // Fill available height.
       >
         {conversationHistory.map((turn, index) => {
           let itemsAlignClass = "items-start"; // Default alignment

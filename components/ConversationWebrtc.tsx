@@ -764,21 +764,21 @@ const ConversationWebrtc = forwardRef<
           <div
             ref={internalScrollContainerRef}
             style={{ flexGrow: 1, overflowY: "auto", minHeight: "100px" }}
-            className="relative bg-gray-100 p-6 space-y-6"
+            className="relative bg-gray-100 p-6 flex flex-col gap-6 min-h-0"
           >
             <TopScrollFade gradientFromColor="from-gray-100" />
             <AnimatePresence>
               <div
                 key="conversation-histories"
-                className="flex flex-col md:flex-row gap-6 md:gap-10 -mt-8"
+                className="flex flex-col md:flex-row gap-6 md:gap-10 -mt-8 flex-1 min-h-0"
               >
-                <motion.div className="w-full">
+                <motion.div className="w-full h-full min-h-0">
                   <ConversationV2
                     conversationHistory={englishHistory}
                     displayLanguage="EN"
                   />
                 </motion.div>
-                <motion.div className="w-full">
+                <motion.div className="w-full h-full min-h-0">
                   <ConversationV2
                     conversationHistory={spanishHistory}
                     displayLanguage="ES"
