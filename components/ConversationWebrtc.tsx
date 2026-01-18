@@ -821,12 +821,7 @@ const ConversationWebrtc = forwardRef<
           </div>
           <div className="flex shrink-0 flex-col items-center gap-4 px-4 pb-4 pt-5 md:flex-row md:gap-10 md:px-0 md:pb-0">
             {activeSessionId && (
-              <ConversationActions
-                sessionId={activeSessionId}
-                isLiveSessionActive={isConnected}
-                onRequestNewSession={onRequestNewSession}
-                currentSessionSummary={currentSessionSummary}
-              />
+              <ConversationActions onRequestNewSession={onRequestNewSession} />
             )}
           </div>
         </div>
