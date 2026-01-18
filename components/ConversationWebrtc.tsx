@@ -806,14 +806,13 @@ const ConversationWebrtc = forwardRef<
               )}
               {!currentSessionSummary &&
                 fetchSummaryError &&
-                !isFetchingSummary && (
+                !isFetchingSummary &&
+                !fetchSummaryError.includes("No summary found") && (
                   <div
                     key="no-summary-message"
                     className="text-center py-4 text-gray-600 italic"
                   >
-                    {fetchSummaryError.includes("No summary found")
-                      ? "No conversation summary available yet."
-                      : "Error loading conversation summary."}
+                    Error loading conversation summary.
                   </div>
                 )}
             </AnimatePresence>
