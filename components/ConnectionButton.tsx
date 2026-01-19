@@ -7,8 +7,12 @@ import {
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { motion } from "framer-motion";
 import { useState } from "react";
-import { useSelector } from "react-redux";
-import type { RootState } from "../store/store";
+import { useAppSelector } from "../store/hooks";
+import {
+  selectHasCurrentSessionSummary,
+  selectWebRtcIsConnected,
+  selectWebRtcIsLoading,
+} from "../store/sessionSelectors";
 
 interface ConnectionButtonProps {
   hasActiveSessionId: boolean;
@@ -23,15 +27,13 @@ export default function ConnectionButton({
   onDisconnect,
   onExitToNewSessionFromSummaryView,
 }: ConnectionButtonProps) {
-  const {
-    webRtcIsLoading: isLoading,
-    webRtcIsConnected: isConnected,
-    currentSessionSummary,
-  } = useSelector((state: RootState) => state.session);
+  const isLoading = useAppSelector(selectWebRtcIsLoading);
+  const isConnected = useAppSelector(selectWebRtcIsConnected);
+  const hasSummaryDataForCurrentSession = useAppSelector(
+    selectHasCurrentSessionSummary,
+  );
 
   const [isHovering, setIsHovering] = useState(false);
-
-  const hasSummaryDataForCurrentSession = !!currentSessionSummary;
 
   let buttonText: string;
   let actionHandler: () => void;

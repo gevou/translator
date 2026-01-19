@@ -11,6 +11,7 @@ import {
   ttsAudioFetchFinished,
 } from "../store/sessionSlice"; // Import actions
 import { store } from "../store/store"; // Import the store to dispatch
+import { selectIsFetchingTtsAudio } from "../store/sessionSelectors";
 import type {
   // Use 'import type' for types
   ConversationTurn,
@@ -380,8 +381,7 @@ export const handleOpenAiMessage = (
         }) fully done (status: ${parsedEvent.response?.status}).`,
       );
       setIsApiReadyForResponse(true);
-      const liveIsFetchingTtsAudio =
-        store.getState().session.isFetchingTtsAudio;
+      const liveIsFetchingTtsAudio = selectIsFetchingTtsAudio(store.getState());
       if (liveIsFetchingTtsAudio) {
         dispatch(ttsAudioFetchFinished());
         addLog(
@@ -406,8 +406,7 @@ export const handleOpenAiMessage = (
       addLog(
         `TTS Audio finished (output_audio_buffer.stopped for response: ${parsedEvent.response_id})`,
       );
-      const liveIsFetchingTtsAudio =
-        store.getState().session.isFetchingTtsAudio;
+      const liveIsFetchingTtsAudio = selectIsFetchingTtsAudio(store.getState());
       if (liveIsFetchingTtsAudio) {
         dispatch(ttsAudioFetchFinished());
         setCurrentAiState("listening");
@@ -432,7 +431,7 @@ export const handleOpenAiMessage = (
         dispatch(ttsAudioFetchFinished());
         addLog(
           "TTS_DEBUG: Dispatched ttsAudioFetchFinished from OpenAI error event. Current isFetchingTtsAudio: " +
-            store.getState().session.isFetchingTtsAudio,
+            selectIsFetchingTtsAudio(store.getState()),
         );
       }
       const errorText = `OpenAI API Error: ${parsedEvent.error?.message || parsedEvent.error?.code || "Unknown error"}`;
@@ -464,7 +463,7 @@ export const handleOpenAiMessage = (
       context.dispatch(ttsAudioFetchFinished());
       context.addLog(
         "TTS_DEBUG: Dispatched ttsAudioFetchFinished from OpenAI event parsing error. Current isFetchingTtsAudio: " +
-          store.getState().session.isFetchingTtsAudio,
+          selectIsFetchingTtsAudio(store.getState()),
       );
     }
     const parseErrorMsg = "Error parsing OpenAI event: " + (e.message || e);
@@ -758,7 +757,7 @@ export const handleTranslationResult = (
       addLog(
         `TR_EFFECT_HANDLER: TTS for lang ${ttsLang} is disabled by toggle. Skipping speech for: "${ttsText}"`,
       );
-      if (store.getState().session.isFetchingTtsAudio) {
+      if (selectIsFetchingTtsAudio(store.getState())) {
         dispatch(ttsAudioFetchFinished());
         addLog(
           "TR_EFFECT_HANDLER: Dispatched ttsAudioFetchFinished as TTS was skipped due to toggle (isFetchingTtsAudio was true).",

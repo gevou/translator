@@ -13,7 +13,7 @@ import WelcomeScreen from "../../../components/WelcomeScreen";
 // Redux imports
 import AudioWaveformMirrored from "@/components/eyeCandy/AudioWaveformMirrored";
 import { AnimatePresence, motion } from "framer-motion";
-import { useDispatch, useSelector } from "react-redux";
+import { useAppDispatch, useAppSelector } from "../../../store/hooks";
 import { v4 as uuidv4 } from "uuid";
 import {
   clearHistories,
@@ -29,36 +29,36 @@ import {
   translationProcessingFinished,
   translationProcessingStarted,
 } from "../../../store/sessionSlice";
-import type { AppDispatch, RootState } from "../../../store/store";
+import {
+  selectAreWebRtcHandlesAvailable,
+  selectAutoInitiateNewSession,
+  selectCurrentSessionId,
+  selectIsFetchingSessionData,
+  selectIsWelcomeScreenVisible,
+} from "../../../store/sessionSelectors";
 
 const FADE_DURATION = 400; // ms
 
 // Note: The 'params' prop here is for RSC. Client-side slug is obtained via useParams().
-export default function ConversationPage({
-  params: rscParams,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default function ConversationPage() {
   const clientParams = useParams();
   const slugFromUrl =
     typeof clientParams?.slug === "string" ? clientParams.slug : null;
   console.log(
-    "PAGE_INIT: RSC params:",
-    rscParams,
-    "Client params:",
+    "PAGE_INIT: Client params:",
     clientParams,
     "Resolved slug:",
     slugFromUrl,
   );
 
-  const dispatch = useDispatch<AppDispatch>();
-  const {
-    currentSessionId: sessionIdFromStore,
-    isWelcomeScreenVisible,
-    areWebRtcHandlesAvailable,
-    isFetchingSessionData,
-    autoInitiateNewSession,
-  } = useSelector((state: RootState) => state.session);
+  const dispatch = useAppDispatch();
+  const sessionIdFromStore = useAppSelector(selectCurrentSessionId);
+  const isWelcomeScreenVisible = useAppSelector(selectIsWelcomeScreenVisible);
+  const areWebRtcHandlesAvailable = useAppSelector(
+    selectAreWebRtcHandlesAvailable,
+  );
+  const isFetchingSessionData = useAppSelector(selectIsFetchingSessionData);
+  const autoInitiateNewSession = useAppSelector(selectAutoInitiateNewSession);
 
   // Local states primarily for data passing and WebRTC control
   const [stream, setStream] = useState<MediaStream | null>(null);

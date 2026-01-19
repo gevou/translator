@@ -2,9 +2,12 @@
 import { faVolumeHigh, faVolumeXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useRef } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { toggleEnglishTts, toggleSpanishTts } from "../store/sessionSlice";
-import type { AppDispatch, RootState } from "../store/store";
+import {
+  selectIsEnglishTtsEnabled,
+  selectIsSpanishTtsEnabled,
+} from "../store/sessionSelectors";
 import type { ConversationTurn } from "../types/conversation";
 
 interface ConversationV2Props {
@@ -19,10 +22,9 @@ const ConversationV2 = React.memo(function ConversationV2({
   console.log(
     `ConversationV2 ${displayLanguage} RENDER, history length: ${conversationHistory?.length}`,
   );
-  const dispatch = useDispatch<AppDispatch>();
-  const { isEnglishTtsEnabled, isSpanishTtsEnabled } = useSelector(
-    (state: RootState) => state.session,
-  );
+  const dispatch = useAppDispatch();
+  const isEnglishTtsEnabled = useAppSelector(selectIsEnglishTtsEnabled);
+  const isSpanishTtsEnabled = useAppSelector(selectIsSpanishTtsEnabled);
   const scrollableContainerRef = useRef<HTMLDivElement>(null);
 
   const currentTtsEnabled =
