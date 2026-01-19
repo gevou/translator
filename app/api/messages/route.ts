@@ -2,25 +2,22 @@ export const runtime = "edge";
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-import { neon, neonConfig } from "@neondatabase/serverless";
 import { NextResponse } from "next/server";
+import { getDb } from "../_utils/db";
+import { jsonError } from "../_utils/http";
+import { createLogger } from "../_utils/logger";
+import type { FormattedTurnInsert } from "../../../types/conversation";
 
-neonConfig.poolQueryViaFetch = true;
-
-// Interface for the expected payload for a new message/turn
-interface NewFormattedTurn {
-  id: string;
-  session_id: string;
-  text: string;
-  turn_type: string;
-  timestamp?: string; // Optional: client can send ISO string, or DB will use DEFAULT current_timestamp
-  language_code: string;
-  actor: string; // "user" | "assistant" | "system"
-  original_item_id?: string | null;
-}
+const logger = createLogger("api/messages");
 
 export async function POST(request: Request) {
-  const turnData = (await request.json()) as NewFormattedTurn;
+  let turnData: FormattedTurnInsert;
+  try {
+    turnData = (await request.json()) as FormattedTurnInsert;
+  } catch (error: any) {
+    logger.error("Invalid JSON body", error);
+    return jsonError("Invalid JSON body", 400);
+  }
 
   if (
     !turnData ||
@@ -31,20 +28,16 @@ export async function POST(request: Request) {
     !turnData.language_code ||
     !turnData.actor
   ) {
-    return NextResponse.json(
-      { error: "Missing required fields for formatted turn" },
-      { status: 400 },
-    );
-  }
-  if (!process.env.DATABASE_URL) {
-    console.error("POST /api/messages: DATABASE_URL not configured");
-    return NextResponse.json(
-      { error: "Database not configured" },
-      { status: 500 },
-    );
+    return jsonError("Missing required fields for formatted turn", 400);
   }
 
-  const sql = neon(process.env.DATABASE_URL);
+  let sql;
+  try {
+    sql = getDb();
+  } catch (error: any) {
+    logger.error("Database not configured", error);
+    return jsonError("Database not configured", 500, error.message);
+  }
 
   try {
     // Use the provided timestamp if available, otherwise rely on DB default
@@ -68,22 +61,19 @@ export async function POST(request: Request) {
       )
       ON CONFLICT (id) DO NOTHING;
     `;
-    console.log(
-      `POST /api/messages: Successfully inserted turn ID: ${turnData.id} for session: ${turnData.session_id}, type: ${turnData.turn_type}`,
+    logger.log(
+      `Inserted turn ID: ${turnData.id} for session: ${turnData.session_id}, type: ${turnData.turn_type}`,
     );
     return NextResponse.json(
       { success: true, id: turnData.id },
       { status: 201 },
     );
   } catch (error: any) {
-    console.error(
-      `POST /api/messages: Error inserting turn for session_id: ${turnData.session_id}`,
+    logger.error(
+      `Error inserting turn for session_id: ${turnData.session_id}`,
       error,
     );
-    return NextResponse.json(
-      { error: "Failed to save message", details: error.message },
-      { status: 500 },
-    );
+    return jsonError("Failed to save message", 500, error.message);
   }
 }
 
@@ -92,20 +82,16 @@ export async function GET(request: Request) {
   const sessionId = url.searchParams.get("session_id");
 
   if (!sessionId) {
-    return NextResponse.json(
-      { error: "Missing session_id query parameter" },
-      { status: 400 },
-    );
-  }
-  if (!process.env.DATABASE_URL) {
-    console.error("GET /api/messages: DATABASE_URL not configured");
-    return NextResponse.json(
-      { error: "Database not configured" },
-      { status: 500 },
-    );
+    return jsonError("Missing session_id query parameter", 400);
   }
 
-  const sql = neon(process.env.DATABASE_URL);
+  let sql;
+  try {
+    sql = getDb();
+  } catch (error: any) {
+    logger.error("Database not configured", error);
+    return jsonError("Database not configured", 500, error.message);
+  }
 
   try {
     const rows = await sql`
@@ -116,13 +102,10 @@ export async function GET(request: Request) {
     `;
     return NextResponse.json(rows, { status: 200 });
   } catch (error: any) {
-    console.error(
-      `GET /api/messages: Error fetching turns for session_id: ${sessionId}`,
+    logger.error(
+      `Error fetching turns for session_id: ${sessionId}`,
       error,
     );
-    return NextResponse.json(
-      { error: "Failed to fetch messages", details: error.message },
-      { status: 500 },
-    );
+    return jsonError("Failed to fetch messages", 500, error.message);
   }
 }

@@ -1,13 +1,18 @@
+export const runtime = "edge";
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 import { NextResponse } from "next/server";
+import { jsonError } from "../_utils/http";
+import { createLogger } from "../_utils/logger";
+
+const logger = createLogger("api/openai-session");
 
 export async function POST() {
   const openaiApiKey = process.env.OPENAI_API_KEY;
 
   if (!openaiApiKey) {
-    return NextResponse.json(
-      { error: "OpenAI API key not configured" },
-      { status: 500 },
-    );
+    return jsonError("OpenAI API key not configured", 500);
   }
 
   const sessionHostModel = "gpt-4o-mini-realtime-preview-2024-12-17";
@@ -45,46 +50,35 @@ export async function POST() {
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error(
+      logger.error(
         "OpenAI Session API error (transcription session attempt):",
         errorData,
       );
-      return NextResponse.json(
-        {
-          error: "Failed to create OpenAI transcription session",
-          details: errorData,
-        },
-        { status: response.status },
+      return jsonError(
+        "Failed to create OpenAI transcription session",
+        response.status,
+        JSON.stringify(errorData),
       );
     }
 
     const data = await response.json();
 
     if (data.client_secret && data.client_secret.value) {
-      console.log("Transcription Session created by OpenAI:", data);
+      logger.log("Transcription Session created by OpenAI:", data);
       return NextResponse.json({
         ephemeralKey: data.client_secret.value,
         sessionId: data.id,
         sessionDetails: data,
       });
     } else {
-      console.error(
+      logger.error(
         "Ephemeral key not found in OpenAI response (transcription session attempt):",
         data,
       );
-      return NextResponse.json(
-        { error: "Ephemeral key not found in response" },
-        { status: 500 },
-      );
+      return jsonError("Ephemeral key not found in response", 500);
     }
   } catch (error) {
-    console.error(
-      "Error fetching ephemeral key for transcription session:",
-      error,
-    );
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    logger.error("Error fetching ephemeral key for transcription session:", error);
+    return jsonError("Internal server error", 500);
   }
 }
