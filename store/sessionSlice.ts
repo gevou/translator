@@ -74,6 +74,13 @@ interface SessionState {
   pendingTtsRequest: { text: string; language: string; itemId: string } | null; // NEW: For queuing TTS requests
 }
 
+type FetchSessionDataResult = {
+  histories: { english: ConversationTurn[]; spanish: ConversationTurn[] };
+  summary: SummaryData | null;
+  showWelcome: boolean;
+  autoInitiateNewSession: boolean;
+};
+
 const initialState: SessionState = {
   currentSessionId: null,
   isWelcomeScreenVisible: true, // Default to showing WelcomeScreen
@@ -104,20 +111,67 @@ const initialState: SessionState = {
   pendingTtsRequest: null, // NEW: Initialize pendingTtsRequest
 };
 
+const applyCurrentSessionSummary = (
+  state: SessionState,
+  summary: SummaryData | null,
+) => {
+  state.currentSessionSummary = summary;
+  const newStatuses: Record<string, ActionStatus> = {};
+  const newErrorMessages: Record<string, string | null> = {};
+  if (summary && summary.detected_actions) {
+    summary.detected_actions.forEach((act) => {
+      newStatuses[act] = state.actionInvocationStatus[act] || "idle";
+      if (
+        state.actionInvocationStatus[act] === "error" &&
+        state.actionErrorMessages[act]
+      ) {
+        newErrorMessages[act] = state.actionErrorMessages[act];
+      }
+    });
+  }
+  state.actionInvocationStatus = newStatuses;
+  state.actionErrorMessages = newErrorMessages;
+};
+
+const resetSessionContentState = (
+  state: SessionState,
+  options: { showWelcome: boolean },
+) => {
+  state.isWelcomeScreenVisible = options.showWelcome;
+  state.isTranscribing = false;
+  state.isProcessingTranslation = false;
+  state.isFetchingTtsAudio = false;
+  state.webRtcIsLoading = false;
+  state.webRtcIsConnected = false;
+  state.englishHistory = [];
+  state.spanishHistory = [];
+  state.apiTranslationResult = null;
+  state.pendingToolCalls = [];
+  state.pendingTtsRequest = null;
+  applyCurrentSessionSummary(state, null);
+};
+
 // Define the async thunk for fetching session data
-const fetchSessionDataThunk = createAsyncThunk(
+const fetchSessionDataThunk = createAsyncThunk<
+  FetchSessionDataResult,
+  { sessionId: string; pageLogger?: PageLoggerFunction },
+  { rejectValue: string }
+>(
   "session/fetchSessionData",
   async (
     {
       sessionId,
       pageLogger = console.log,
     }: { sessionId: string; pageLogger?: PageLoggerFunction },
-    { dispatch, rejectWithValue },
+    { rejectWithValue },
   ) => {
     pageLogger(`FETCH_THUNK: Fetching data for session ID: ${sessionId}`);
 
     let noTurns = true;
     let noSummary = true;
+    let englishHistory: ConversationTurn[] = [];
+    let spanishHistory: ConversationTurn[] = [];
+    let summaryData: SummaryData | null = null;
 
     try {
       // Fetch messages
@@ -132,8 +186,8 @@ const fetchSessionDataThunk = createAsyncThunk(
 
         if (dbTurns && dbTurns.length > 0) {
           noTurns = false;
-          const englishHistory: ConversationTurn[] = [];
-          const spanishHistory: ConversationTurn[] = [];
+          const tempEnglishHistory: ConversationTurn[] = [];
+          const tempSpanishHistory: ConversationTurn[] = [];
 
           dbTurns.forEach((turn) => {
             const currentTurnType = turn.turn_type as ConversationTurn["type"];
@@ -158,12 +212,12 @@ const fetchSessionDataThunk = createAsyncThunk(
               turn.actor === "user"
             ) {
               if (originalLangCode && originalLangCode.startsWith("es")) {
-                spanishHistory.push({
+                tempSpanishHistory.push({
                   ...formattedTurnForState,
                   type: "user_direct_es",
                 });
               } else {
-                englishHistory.push({
+                tempEnglishHistory.push({
                   ...formattedTurnForState,
                   type: "user_direct_en",
                 });
@@ -173,47 +227,49 @@ const fetchSessionDataThunk = createAsyncThunk(
               currentTurnType === "user_translation_to_en" ||
               currentTurnType === "assistant_spoken_en"
             ) {
-              englishHistory.push(formattedTurnForState);
+              tempEnglishHistory.push(formattedTurnForState);
             } else if (
               currentTurnType === "user_direct_es" ||
               currentTurnType === "user_translation_to_es" ||
               currentTurnType === "assistant_spoken_es"
             ) {
-              spanishHistory.push(formattedTurnForState);
+              tempSpanishHistory.push(formattedTurnForState);
             } else if (currentTurnType === "error_message") {
               if (
-                !englishHistory.find((t) => t.id === formattedTurnForState.id)
+                !tempEnglishHistory.find(
+                  (t) => t.id === formattedTurnForState.id,
+                )
               )
-                englishHistory.push(formattedTurnForState);
+                tempEnglishHistory.push(formattedTurnForState);
               if (
-                !spanishHistory.find((t) => t.id === formattedTurnForState.id)
+                !tempSpanishHistory.find(
+                  (t) => t.id === formattedTurnForState.id,
+                )
               )
-                spanishHistory.push(formattedTurnForState);
+                tempSpanishHistory.push(formattedTurnForState);
             }
           });
 
           pageLogger(
-            `FETCH_THUNK: Temp englishHistory before dispatch: ${JSON.stringify(englishHistory)}`,
+            `FETCH_THUNK: Temp englishHistory before dispatch: ${JSON.stringify(tempEnglishHistory)}`,
           );
           pageLogger(
-            `FETCH_THUNK: Temp spanishHistory before dispatch: ${JSON.stringify(spanishHistory)}`,
+            `FETCH_THUNK: Temp spanishHistory before dispatch: ${JSON.stringify(tempSpanishHistory)}`,
           );
 
-          dispatch(
-            setHistories({
-              english: englishHistory.filter(
-                (t, i, s) => i === s.findIndex((e) => e.id === t.id),
-              ),
-              spanish: spanishHistory.filter(
-                (t, i, s) => i === s.findIndex((e) => e.id === t.id),
-              ),
-            }),
+          englishHistory = tempEnglishHistory.filter(
+            (t, i, s) => i === s.findIndex((e) => e.id === t.id),
+          );
+          spanishHistory = tempSpanishHistory.filter(
+            (t, i, s) => i === s.findIndex((e) => e.id === t.id),
           );
         } else {
-          dispatch(setHistories({ english: [], spanish: [] }));
+          englishHistory = [];
+          spanishHistory = [];
         }
       } else {
-        dispatch(setHistories({ english: [], spanish: [] }));
+        englishHistory = [];
+        spanishHistory = [];
       }
 
       // Fetch summary
@@ -221,11 +277,10 @@ const fetchSessionDataThunk = createAsyncThunk(
         `/api/summary?session_id=${sessionId}`,
       );
       if (summaryResponse.ok) {
-        const summaryData = await summaryResponse.json();
-        dispatch(setCurrentSessionSummary(summaryData));
+        summaryData = await summaryResponse.json();
         noSummary = false;
       } else {
-        dispatch(setCurrentSessionSummary(null));
+        summaryData = null;
       }
 
       // Determine UI state based on what we found
@@ -233,22 +288,25 @@ const fetchSessionDataThunk = createAsyncThunk(
         pageLogger(
           `FETCH_THUNK: Session ${sessionId} is new/empty. Dispatching showWelcome.`,
         );
-        dispatch(showWelcome());
-        return { autoInitiateNewSession: true };
+        return {
+          histories: { english: englishHistory, spanish: spanishHistory },
+          summary: summaryData,
+          showWelcome: true,
+          autoInitiateNewSession: true,
+        };
       } else {
         pageLogger(
           `FETCH_THUNK: Data found for session ${sessionId}. Dispatching dismissWelcomeAndShowContent.`,
         );
-        dispatch(dismissWelcomeAndShowContent());
-        return { autoInitiateNewSession: false };
+        return {
+          histories: { english: englishHistory, spanish: spanishHistory },
+          summary: summaryData,
+          showWelcome: false,
+          autoInitiateNewSession: false,
+        };
       }
     } catch (error: any) {
       console.error("Error fetching session data:", error);
-
-      // Reset state to defaults
-      dispatch(setHistories({ english: [], spanish: [] }));
-      dispatch(setCurrentSessionSummary(null));
-      dispatch(showWelcome());
 
       return rejectWithValue(error.message || "Failed to fetch session data");
     }
@@ -472,46 +530,15 @@ const sessionSlice = createSlice({
       const newSessionId = action.payload;
       if (state.currentSessionId !== newSessionId) {
         state.currentSessionId = newSessionId;
-        state.isWelcomeScreenVisible = newSessionId === null;
-        state.isTranscribing = false;
-        state.isProcessingTranslation = false;
-        state.isFetchingTtsAudio = false;
-        state.webRtcIsLoading = false;
-        state.webRtcIsConnected = false;
-        state.currentSessionSummary = null;
-        state.englishHistory = [];
-        state.spanishHistory = [];
-        state.apiTranslationResult = null;
-        state.actionInvocationStatus = {};
-        state.actionErrorMessages = {};
-        state.pendingToolCalls = [];
-        state.pendingTtsRequest = null;
+        resetSessionContentState(state, {
+          showWelcome: newSessionId === null,
+        });
       } else if (newSessionId === null && state.currentSessionId === null) {
-        state.isWelcomeScreenVisible = true;
-        state.englishHistory = [];
-        state.spanishHistory = [];
-        state.apiTranslationResult = null;
-        state.actionInvocationStatus = {};
-        state.actionErrorMessages = {};
-        state.pendingToolCalls = [];
-        state.pendingTtsRequest = null;
+        resetSessionContentState(state, { showWelcome: true });
       }
     },
     showWelcome: (state) => {
-      state.isWelcomeScreenVisible = true;
-      state.isTranscribing = false;
-      state.isProcessingTranslation = false;
-      state.isFetchingTtsAudio = false;
-      state.webRtcIsLoading = false;
-      state.webRtcIsConnected = false;
-      state.currentSessionSummary = null;
-      state.englishHistory = [];
-      state.spanishHistory = [];
-      state.apiTranslationResult = null;
-      state.actionInvocationStatus = {};
-      state.actionErrorMessages = {};
-      state.pendingToolCalls = [];
-      state.pendingTtsRequest = null;
+      resetSessionContentState(state, { showWelcome: true });
     },
     dismissWelcomeAndShowContent: (state) => {
       state.isWelcomeScreenVisible = false;
@@ -555,27 +582,10 @@ const sessionSlice = createSlice({
       state,
       action: PayloadAction<SummaryData | null>,
     ) => {
-      state.currentSessionSummary = action.payload;
-      const newStatuses: Record<string, ActionStatus> = {};
-      const newErrorMessages: Record<string, string | null> = {};
-      if (action.payload && action.payload.detected_actions) {
-        action.payload.detected_actions.forEach((act) => {
-          newStatuses[act] = state.actionInvocationStatus[act] || "idle";
-          if (
-            state.actionInvocationStatus[act] === "error" &&
-            state.actionErrorMessages[act]
-          ) {
-            newErrorMessages[act] = state.actionErrorMessages[act];
-          }
-        });
-      }
-      state.actionInvocationStatus = newStatuses;
-      state.actionErrorMessages = newErrorMessages;
+      applyCurrentSessionSummary(state, action.payload);
     },
     clearCurrentSessionSummary: (state) => {
-      state.currentSessionSummary = null;
-      state.actionInvocationStatus = {};
-      state.actionErrorMessages = {};
+      applyCurrentSessionSummary(state, null);
     },
     setAreWebRtcHandlesAvailable: (state, action: PayloadAction<boolean>) => {
       state.areWebRtcHandlesAvailable = action.payload;
@@ -698,12 +708,21 @@ const sessionSlice = createSlice({
         state.isFetchingSessionData = false;
         state.fetchSessionDataError = null;
         state.autoInitiateNewSession = action.payload.autoInitiateNewSession;
+        if (action.payload.showWelcome) {
+          resetSessionContentState(state, { showWelcome: true });
+        } else {
+          state.isWelcomeScreenVisible = false;
+          state.englishHistory = action.payload.histories.english;
+          state.spanishHistory = action.payload.histories.spanish;
+          applyCurrentSessionSummary(state, action.payload.summary);
+        }
       })
       .addCase(fetchSessionDataThunk.rejected, (state, action) => {
         state.isFetchingSessionData = false;
         state.fetchSessionDataError =
           (action.payload as string) || "Failed to fetch session data";
         state.autoInitiateNewSession = true;
+        resetSessionContentState(state, { showWelcome: true });
       })
       .addCase(fetchSessionSummaryThunk.pending, (state) => {
         state.isFetchingSummary = true;

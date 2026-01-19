@@ -1,13 +1,18 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useSelector } from "react-redux";
 import { toast } from "sonner";
-import type { RootState } from "../store/store";
+import { useAppSelector } from "../store/hooks";
+import {
+  selectIsFetchingTtsAudio,
+  selectIsProcessingTranslation,
+  selectIsTranscribing,
+} from "../store/sessionSelectors";
 
 export default function StatusIndicators() {
-  const { isTranscribing, isProcessingTranslation, isFetchingTtsAudio } =
-    useSelector((state: RootState) => state.session);
+  const isTranscribing = useAppSelector(selectIsTranscribing);
+  const isProcessingTranslation = useAppSelector(selectIsProcessingTranslation);
+  const isFetchingTtsAudio = useAppSelector(selectIsFetchingTtsAudio);
 
   const transcribingToastIdRef = useRef<string | number | null>(null);
   const translationToastIdRef = useRef<string | number | null>(null);

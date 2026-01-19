@@ -1,8 +1,8 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useDispatch, useSelector } from "react-redux";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { setSession } from "../store/sessionSlice";
-import { AppDispatch, RootState } from "../store/store";
+import { selectIsFetchingSummary } from "../store/sessionSelectors";
 
 interface ConversationActionsProps {
   onRequestNewSession?: () => void;
@@ -11,11 +11,9 @@ interface ConversationActionsProps {
 export default function ConversationActions({
   onRequestNewSession,
 }: ConversationActionsProps) {
-  const dispatch = useDispatch<AppDispatch>();
+  const dispatch = useAppDispatch();
   const router = useRouter();
-  const { isFetchingSummary } = useSelector(
-    (state: RootState) => state.session,
-  );
+  const isFetchingSummary = useAppSelector(selectIsFetchingSummary);
 
   const handleRestartClick = () => {
     if (onRequestNewSession) {

@@ -9,7 +9,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
 import type { PendingToolCall } from "../store/sessionSlice";
 import {
   clearApiTranslationResult,
@@ -21,7 +21,22 @@ import {
   submitMockToolOutputsThunk,
   ttsAudioFetchStarted,
 } from "../store/sessionSlice";
-import type { AppDispatch, RootState } from "../store/store";
+import {
+  selectApiTranslationResult,
+  selectAutoInitiateNewSession,
+  selectCurrentSessionId,
+  selectCurrentSessionSummary,
+  selectEnglishHistory,
+  selectFetchSummaryError,
+  selectIsEnglishTtsEnabled,
+  selectIsFetchingSummary,
+  selectIsSpanishTtsEnabled,
+  selectPendingToolCalls,
+  selectPendingTtsRequest,
+  selectSpanishHistory,
+  selectWebRtcIsConnected,
+  selectWebRtcIsLoading,
+} from "../store/sessionSelectors";
 import type {
   AiStateType,
   OpenAiEventContext,
@@ -75,28 +90,26 @@ const ConversationWebrtc = forwardRef<
       onConnectionStateChange,
       onFinalTranscriptForTranslation,
       onRequestNewSession,
-      autoInitiateNewSession,
       onNewSessionAutoInitiated,
       mainContentAreaRef,
     },
     ref,
   ) => {
-    const dispatch = useDispatch<AppDispatch>();
-    const {
-      englishHistory,
-      spanishHistory,
-      currentSessionId: activeSessionId,
-      webRtcIsLoading: isLoading,
-      webRtcIsConnected: isConnected,
-      isEnglishTtsEnabled,
-      isSpanishTtsEnabled,
-      currentSessionSummary,
-      apiTranslationResult,
-      pendingToolCalls,
-      isFetchingSummary,
-      fetchSummaryError,
-      pendingTtsRequest,
-    } = useSelector((state: RootState) => state.session);
+    const dispatch = useAppDispatch();
+    const englishHistory = useAppSelector(selectEnglishHistory);
+    const spanishHistory = useAppSelector(selectSpanishHistory);
+    const activeSessionId = useAppSelector(selectCurrentSessionId);
+    const isLoading = useAppSelector(selectWebRtcIsLoading);
+    const isConnected = useAppSelector(selectWebRtcIsConnected);
+    const isEnglishTtsEnabled = useAppSelector(selectIsEnglishTtsEnabled);
+    const isSpanishTtsEnabled = useAppSelector(selectIsSpanishTtsEnabled);
+    const currentSessionSummary = useAppSelector(selectCurrentSessionSummary);
+    const apiTranslationResult = useAppSelector(selectApiTranslationResult);
+    const pendingToolCalls = useAppSelector(selectPendingToolCalls);
+    const isFetchingSummary = useAppSelector(selectIsFetchingSummary);
+    const fetchSummaryError = useAppSelector(selectFetchSummaryError);
+    const pendingTtsRequest = useAppSelector(selectPendingTtsRequest);
+    const autoInitiateNewSession = useAppSelector(selectAutoInitiateNewSession);
 
     const [currentAiState, setCurrentAiState] = useState<AiStateType>("idle");
     const [directTranscript, setDirectTranscript] = useState<string>("");
