@@ -1,5 +1,9 @@
 import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit";
-import type { SummaryData, ConversationTurn } from "../types/conversation"; // Adjust path if necessary
+import type {
+  SummaryData,
+  ConversationTurn,
+  FormattedTurnFromDB,
+} from "../types/conversation"; // Adjust path if necessary
 
 // Define the shape of the translation result from the API
 export interface ApiTranslationResponse {
@@ -28,17 +32,6 @@ export interface PendingToolCall {
   toolArguments: string; // JSON string of arguments from LLM
   runId: string;
   threadId: string;
-}
-
-// Interface for formatted turn data coming from database
-export interface FormattedTurnFromDB {
-  id: string;
-  text: string;
-  timestamp: string;
-  turn_type: string;
-  actor: string;
-  language_code?: string;
-  original_item_id?: string;
 }
 
 // Type for logging function

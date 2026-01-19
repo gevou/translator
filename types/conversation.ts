@@ -34,6 +34,17 @@ export interface SummaryData {
   created_at: string;
 }
 
+export interface FormattedTurnInsert {
+  id: string;
+  session_id: string;
+  text: string;
+  turn_type: string;
+  timestamp?: string;
+  language_code: string;
+  actor: "user" | "assistant" | "system";
+  original_item_id?: string | null;
+}
+
 // Context types that were in ConversationWebrtc.tsx can also move here if they are shared more broadly
 // For now, keeping them in ConversationWebrtc.tsx as they are specific to its internal workings with event handlers.
 // However, if other components start needing these exact context shapes, this is a good place for them.

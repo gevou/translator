@@ -2,33 +2,31 @@ export const runtime = "edge";
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-import { neon, neonConfig } from "@neondatabase/serverless";
 import { NextResponse } from "next/server";
+import { getDb } from "../_utils/db";
+import { jsonError } from "../_utils/http";
+import { createLogger } from "../_utils/logger";
 
-neonConfig.poolQueryViaFetch = true;
+const logger = createLogger("api/summary");
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const sessionId = searchParams.get("session_id");
 
   if (!sessionId) {
-    return NextResponse.json({ error: "Missing session_id" }, { status: 400 });
+    return jsonError("Missing session_id", 400);
   }
 
-  if (!process.env.DATABASE_URL) {
-    console.error("GET /api/summary: DATABASE_URL not configured");
-    return NextResponse.json(
-      { error: "Database not configured" },
-      { status: 500 },
-    );
+  let sql;
+  try {
+    sql = getDb();
+  } catch (error: any) {
+    logger.error("Database not configured", error);
+    return jsonError("Database not configured", 500, error.message);
   }
-
-  const sql = neon(process.env.DATABASE_URL);
 
   try {
-    console.log(
-      `GET /api/summary: Fetching summary for session_id: ${sessionId}`,
-    );
+    logger.log(`Fetching summary for session_id: ${sessionId}`);
     const summaryResult = await sql`
       SELECT session_id, summary_text, detected_actions, created_at
       FROM conversation_summaries
@@ -38,10 +36,8 @@ export async function GET(request: Request) {
     `;
 
     if (summaryResult.length === 0) {
-      console.log(
-        `GET /api/summary: No summary found for session_id: ${sessionId}`,
-      );
-      return NextResponse.json({ error: "Summary not found" }, { status: 404 });
+      logger.log(`No summary found for session_id: ${sessionId}`);
+      return jsonError("Summary not found", 404);
     }
 
     const dbSummary = summaryResult[0];
@@ -55,23 +51,13 @@ export async function GET(request: Request) {
       created_at: dbSummary.created_at,
     };
 
-    console.log(
-      `GET /api/summary: Summary found for session_id: ${sessionId}`,
-      summaryData,
-    );
+    logger.log(`Summary found for session_id: ${sessionId}`, summaryData);
     return NextResponse.json(summaryData, { status: 200 });
   } catch (error: any) {
-    console.error(
-      `GET /api/summary: Error fetching summary for session_id: ${sessionId}`,
+    logger.error(
+      `Error fetching summary for session_id: ${sessionId}`,
       error,
     );
-    let errorMessage = "Failed to fetch summary";
-    if (error.message) {
-      errorMessage = error.message;
-    }
-    return NextResponse.json(
-      { error: "Failed to fetch summary", details: errorMessage },
-      { status: 500 },
-    );
+    return jsonError("Failed to fetch summary", 500, error.message);
   }
 }

@@ -1,41 +1,32 @@
+export const runtime = "edge";
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import { jsonError } from "../_utils/http";
+import { getOpenAiClient } from "../_utils/openai";
+import { createLogger } from "../_utils/logger";
 
-// Ensure your OpenAI API key is set in environment variables
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const logger = createLogger("api/submit-tool-outputs");
 
 export async function POST(request: Request) {
-  console.log("POST /api/submit-tool-outputs: Handler invoked");
+  logger.log("Handler invoked");
   try {
     const { threadId, runId, toolOutputs } = await request.json();
 
     if (!threadId || !runId || !toolOutputs) {
-      return NextResponse.json(
-        { error: "Missing threadId, runId, or toolOutputs" },
-        { status: 400 },
-      );
-    }
-    if (!process.env.OPENAI_API_KEY) {
-      console.error(
-        "POST /api/submit-tool-outputs: OPENAI_API_KEY not configured",
-      );
-      return NextResponse.json(
-        { error: "OpenAI API key not configured" },
-        { status: 500 },
-      );
+      return jsonError("Missing threadId, runId, or toolOutputs", 400);
     }
 
-    console.log(
-      `POST /api/submit-tool-outputs: Submitting to OpenAI for threadId: ${threadId}, runId: ${runId}`,
+    logger.log(
+      `Submitting to OpenAI for threadId: ${threadId}, runId: ${runId}`,
     );
-    console.log(
-      `POST /api/submit-tool-outputs: Tool outputs: ${JSON.stringify(toolOutputs)}`,
-    );
+    logger.log(`Tool outputs: ${JSON.stringify(toolOutputs)}`);
 
     // Actual call to OpenAI SDK to submit tool outputs
     // IMPORTANT: Ensure your OpenAI client is initialized correctly with your API key
+    const openai = getOpenAiClient();
     const run = await openai.beta.threads.runs.submitToolOutputs(
       threadId,
       runId,
@@ -44,8 +35,8 @@ export async function POST(request: Request) {
       },
     );
 
-    console.log(
-      `POST /api/submit-tool-outputs: Successfully submitted tool outputs. Run status: ${run.status}`,
+    logger.log(
+      `Successfully submitted tool outputs. Run status: ${run.status}`,
     );
 
     // You might want to return the run object or just a success status
@@ -55,19 +46,13 @@ export async function POST(request: Request) {
       { status: 200 },
     );
   } catch (error: any) {
-    console.error(
-      `POST /api/submit-tool-outputs: Error submitting tool outputs to OpenAI`,
-      error,
-    );
+    logger.error("Error submitting tool outputs to OpenAI", error);
     let errorMessage = "Failed to submit tool outputs";
     if (error instanceof OpenAI.APIError) {
       errorMessage = `OpenAI API Error: ${error.status} ${error.name} - ${error.message}`;
     } else if (error.message) {
       errorMessage = error.message;
     }
-    return NextResponse.json(
-      { error: "Failed to submit tool outputs", details: errorMessage },
-      { status: 500 },
-    );
+    return jsonError("Failed to submit tool outputs", 500, errorMessage);
   }
 }
